@@ -264,6 +264,17 @@ with col_right:
                     )
                     st.plotly_chart(fig_curve, use_container_width=True)
 
+                    # 4. AI Negotiation Intelligence
+                    if 'negotiation_insights' in data and data['negotiation_insights']:
+                        st.markdown("### 🎯 AI Negotiation Intelligence")
+                        for insight in data['negotiation_insights']:
+                            if insight.startswith("Buyer Tactic"):
+                                st.error(insight, icon="📉")
+                            elif insight.startswith("Seller Leverage"):
+                                st.success(insight, icon="📈")
+                            else:
+                                st.info(insight, icon="💡")
+
                 else:
                     st.error(f"Error {response.status_code}: {response.text}")
             except Exception as e:
