@@ -5,3 +5,8 @@ __pycache__/
 data/
 images/
 .DS_Store
+models/
+mlruns/
+*.joblib
+*.db
+.pytest_cache/
