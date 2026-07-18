@@ -1,18 +1,17 @@
-# AutoValuate — Intelligent Used Car Pricing Engine
+# AutoValuate Pro — Intelligent Used Car Pricing Engine
 
-### A production-grade dynamic pricing system with uncertainty-aware predictions and explainability
+### A production-grade SaaS pricing system with uncertainty-aware predictions, MLOps telemetry, and API authentication.
 
 ---
 
-## 1. Business Framing
+## 1. Important Pro Features Added
+We recently upgraded AutoValuate to a full "Pro" production state. Here are the key highlights:
 
-Every pricing system has two failure modes, and they're asymmetric:
-- **Overestimate the price** → the platform loses money when reselling the car
-- **Underestimate the price** → the seller walks to a competitor
-
-A model optimized purely for RMSE treats both errors equally. A *pricing* system shouldn't. 
-
-> "AutoValuate doesn't just predict a price — it predicts a price *range* with confidence bounds, and explicitly optimizes for asymmetric business cost rather than symmetric error."
+- **MLOps & Data Drift Dashboard**: We added an asynchronous SQLite logging system (`prediction_logs.db`). Every time a prediction is made, the inputs and outputs are saved. The Streamlit Dashboard now has a dedicated "MLOps & Drift Monitor" tab to visualize API usage, pricing trends, and query distributions in real-time.
+- **API Key Authentication**: The FastAPI backend is secured with an `X-API-Key` header (defaulting to `AUTOVAL-DEMO-KEY`). Unauthorized requests are safely rejected with `401 Unauthorized`.
+- **Prometheus Telemetry**: The FastAPI app exposes a `/metrics` endpoint, allowing you to scrape latency, throughput, and error rates using Grafana or Prometheus.
+- **PDF Valuation Certificates**: The frontend now features an `fpdf2` integration, allowing users to instantly download an official PDF Certificate containing their car's details and the 80% confidence valuation bounds.
+- **Premium UI Upgrades**: The Streamlit interface was entirely redesigned using custom CSS (Glassmorphism, Google Fonts, Animated Gradients, and custom pill-shaped tabs).
 
 ---
 
@@ -52,65 +51,53 @@ A model optimized purely for RMSE treats both errors equally. A *pricing* system
                     │ SHAP Explainer  │  ← cached at startup
                     └────────┬────────┘
                              │
-                    ┌────────▼────────┐
-                    │ FastAPI Service │  ← /predict, /health,
-                    └────────┬────────┘    /model-info
+                    ┌────────▼────────┐  ← /predict (Requires X-API-Key)
+                    │ FastAPI Service │  ← /metrics (Prometheus)
+                    └────────┬────────┘  ← Asynchronously writes to SQLite
                              │
-                    ┌────────▼────────┐
-                    │ Streamlit Dash  │  ← UI with bounds + SHAP
-                    └─────────────────┘
+                    ┌────────▼────────┐  
+                    │ Streamlit Dash  │  ← Valuation UI & MLOps Drift Monitor
+                    └─────────────────┘  ← PDF Certificate Generator
 ```
 
 ---
 
-## 3. Advanced Feature Engineering
-- **Depreciation Curve Position**: Cars depreciate non-linearly. The model maps the age of the car to a historical depreciation curve learned from the training set.
-- **Brand Reliability Score**: Aggregates the average resale-value retention by brand.
-- **Interaction Terms**: e.g., `car_age × km_driven`.
-- **Robust Outliers**: Handled explicitly in the pipeline instead of silently dropping data.
+## 3. How to Deploy (Production)
+
+We have provided a `docker-compose.yml` to make deployment seamless on any VPS (like AWS EC2, DigitalOcean) or local environment.
+
+**Step 1: Install Docker & Docker Compose**
+Ensure your server has Docker installed.
+
+**Step 2: Run the Application**
+```bash
+docker-compose up --build -d
+```
+This single command will:
+1. Build the shared Python environment.
+2. Spin up the **FastAPI Service** on port `8000`.
+3. Spin up the **Streamlit Dashboard** on port `8501`.
+4. Persist the MLOps prediction logs to your local `./data` folder using a Docker volume.
+
+**Step 3 (Alternative): Deploying to Render / Railway**
+Since Render and Railway deploy individual services, you can deploy them separately from this repository:
+1. **Backend Service**: Set the start command to `uvicorn api.main:app --host 0.0.0.0 --port 8000`
+2. **Frontend Service**: Set the start command to `streamlit run dashboard/app.py`
+*(Be sure to set the `AUTOVAL_API_KEY` environment variable in both services so they match!)*
 
 ---
 
-## 4. Modeling Strategy & Results
+## 4. Local Development
 
-We evaluated a naïve baseline, tuned XGBoost and LightGBM models via **Optuna (Bayesian Optimization)**, and combined them into a Stacked Ensemble. More importantly, we introduced **Quantile Regression (10th and 90th percentiles)** to provide 80% confidence bounds on pricing.
+If you want to run the services manually without Docker:
 
-We also designed a custom **Business Cost Metric** that penalizes overestimation (which causes the platform to lose money) 2x heavier than underestimation.
+**Terminal 1 (Backend):**
+```bash
+pip install -r requirements.txt
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
 
-| Model | RMSE | MAE | R² | Business Cost |
-|-------|------|-----|----|---------------|
-| Linear Regression | 383,779 | 194,606 | 0.517 | 442,266 |
-| XGBoost (Optuna) | 265,785 | 118,189 | 0.768 | 295,145 |
-| LightGBM (Optuna) | 282,294 | 126,898 | 0.738 | 313,282 |
-| **Stacked Ensemble** | **271,375** | **121,180** | **0.758** | **300,185** |
-
-*(Note: The ensemble provides a highly robust balance of point estimation, bounds, and optimized business cost).*
-
----
-
-## 5. API & UI Usage
-
-### Streamlit Dashboard (Recommended for Demos)
-Run the interactive dashboard:
+**Terminal 2 (Frontend):**
 ```bash
 streamlit run dashboard/app.py
 ```
-This UI shows the price, the 80% confidence range, and a visual SHAP waterfall chart explaining the top factors driving the price.
-
-### FastAPI Endpoints
-Run the production server with Uvicorn:
-```bash
-uvicorn api.main:app --host 0.0.0.0 --port 8000
-```
-- **POST `/predict`**: Returns point estimate, bounds, and SHAP top-3.
-- **GET `/health`**: Liveness check.
-- **GET `/model-info`**: Versioning and feature schema.
-
----
-
-## 6. MLOps & Testing
-- **Dockerized**: A complete `Dockerfile` is included for zero-config deployments to Render/Railway.
-- **CI/CD**: GitHub Actions workflow runs `pytest` on every push.
-- **Drift Monitoring**: Includes a lightweight Kolmogorov-Smirnov test script (`src/monitor.py`) to detect input distribution shifts over time.
-
----

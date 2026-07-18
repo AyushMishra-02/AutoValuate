@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - AUTOVAL_API_KEY=AUTOVAL-DEMO-KEY
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["streamlit", "run", "dashboard/app.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
+    ports:
+      - "8501:8501"
+    environment:
+      - AUTOVAL_API_KEY=AUTOVAL-DEMO-KEY
+    depends_on:
+      - api
+    restart: unless-stopped
