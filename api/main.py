@@ -10,6 +10,12 @@ import functools
 from .schemas import PredictionRequest, PredictionResponse, SHAPFeature
 from .database import SessionLocal, PredictionLog
 import sys
+import json
+from groq import Groq
+
+# Groq Client Initialization
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
 
@@ -107,34 +113,51 @@ def model_info(api_key: str = Depends(verify_api_key)):
     }
 
 def generate_negotiation_insights(feat_contribs, request):
-    insights = []
-    for feat, contrib in feat_contribs:
-        # We only generate insights for the top 2 absolute contributors to keep it punchy
-        if len(insights) >= 2:
-            break
-            
-        if feat == 'km_driven' and contrib < -10000:
-            insights.append(f"Buyer Tactic: This vehicle has high mileage which heavily depreciates its value (by ₹{abs(contrib):,.0f}). Use impending maintenance milestones to negotiate a further discount.")
-        elif feat == 'km_driven' and contrib > 10000:
-            insights.append(f"Seller Leverage: The exceptionally low mileage is adding ₹{contrib:,.0f} to the value. Hold firm on your price, as low-mileage variants are rare.")
-            
-        elif feat == 'year' and contrib < -15000:
-            insights.append(f"Buyer Tactic: The age of this model is severely impacting its market value. Highlight potential outdated tech and wear-and-tear to push for a lower price.")
-        elif feat == 'year' and contrib > 20000:
-            insights.append(f"Seller Leverage: This is a very recent model year, driving up the price by ₹{contrib:,.0f}. Buyers have few alternatives for near-new cars without buying retail.")
-            
-        elif feat.startswith('brand_') and contrib > 25000:
-            brand = feat.replace('brand_', '')
-            insights.append(f"Market Reality: The '{brand}' badge commands a massive premium (₹{contrib:,.0f}) due to high brand reliability and liquidity. Don't expect much wiggle room.")
-            
-        elif feat == 'is_luxury_brand' and contrib < -30000:
-             insights.append(f"Buyer Tactic: Luxury brands depreciate violently outside of warranty. Use the fear of expensive out-of-warranty repairs to aggressively negotiate down.")
-             
-    # Add a fallback if no specific heuristics were triggered
-    if not insights:
-        insights.append("Market Reality: This vehicle is priced exactly at market expectations with no significant anomalies.")
+    if not groq_client or not request:
+        # Fallback heuristic if Groq API key is missing or request is None
+        insights = []
+        for feat, contrib in feat_contribs:
+            if len(insights) >= 2:
+                break
+            if feat == 'km_driven' and contrib < -10000:
+                insights.append(f"Buyer Tactic: High mileage severely depreciates value (by ₹{abs(contrib):,.0f}). Negotiate a discount.")
+            elif feat == 'year' and contrib > 20000:
+                insights.append(f"Seller Leverage: Recent model year adds ₹{contrib:,.0f}. Hold firm on price.")
+            elif feat.startswith('brand_') and contrib > 25000:
+                insights.append(f"Market Reality: Premium brand commands ₹{contrib:,.0f} extra. Little wiggle room.")
+        if not insights:
+            insights.append("Market Reality: Vehicle is priced at market expectations.")
+        return insights
         
-    return insights
+    try:
+        # Construct dynamic prompt for Groq
+        top_features = ", ".join([f"{feat} (Impact: ₹{contrib:,.0f})" for feat, contrib in feat_contribs[:3]])
+        vehicle_desc = f"{request.year} {request.name} ({request.fuel}, {request.km_driven} km)"
+        
+        prompt = f"""
+You are an expert car dealer and negotiator. Analyze this vehicle: {vehicle_desc}.
+The top 3 factors affecting its price are: {top_features}.
+
+Provide exactly two concise negotiation tactics:
+1. One tactic for the BUYER to negotiate the price down. Start with 'Buyer Tactic:'.
+2. One tactic for the SELLER to justify a higher price. Start with 'Seller Leverage:'.
+
+Format exactly as a JSON array of strings, like this:
+["Buyer Tactic: ...", "Seller Leverage: ..."]
+Do not output any markdown formatting or extra text.
+"""
+        response = groq_client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=150
+        )
+        content = response.choices[0].message.content.strip()
+        insights = json.loads(content)
+        return insights
+    except Exception as e:
+        print(f"Groq API Error: {e}")
+        return ["Market Reality: Vehicle is priced exactly at market expectations with no significant anomalies."]
 
 def log_prediction_to_db(req_dict, price, lower, upper):
     """Background task to log prediction to SQLite for Data Drift Monitoring."""
@@ -162,8 +185,10 @@ def log_prediction_to_db(req_dict, price, lower, upper):
 # LRU Cache for identical requests (simulates Redis edge cache)
 @functools.lru_cache(maxsize=1000)
 def compute_prediction(req_tuple):
-    # Convert tuple back to dict
+    # Convert tuple back to dict and reconstruct PredictionRequest object
     req_dict = dict(req_tuple)
+    request_obj = PredictionRequest(**req_dict)
+    
     df = pd.DataFrame([req_dict])
     
     # 1. Feature Engineering
@@ -203,9 +228,8 @@ def compute_prediction(req_tuple):
         top_3 = feat_contribs[:3]
         explanation = [{'feature': f, 'contribution': round(float(c), 2)} for f, c in top_3]
         
-        # Generate insights
-        # Fake object for compatibility with old function signature
-        insights = generate_negotiation_insights(feat_contribs, None)
+        # Generate insights using LLM
+        insights = generate_negotiation_insights(feat_contribs, request_obj)
         
     return {
         "predicted_price": round(float(point_pred), 2),

@@ -18,3 +18,4 @@ mlflow
 prometheus-fastapi-instrumentator
 fpdf2
 SQLAlchemy
+groq

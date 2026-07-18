@@ -11,6 +11,7 @@ We recently upgraded AutoValuate to a full "Pro" production state. Here are the 
 - **API Key Authentication**: The FastAPI backend is secured with an `X-API-Key` header (defaulting to `AUTOVAL-DEMO-KEY`). Unauthorized requests are safely rejected with `401 Unauthorized`.
 - **Prometheus Telemetry**: The FastAPI app exposes a `/metrics` endpoint, allowing you to scrape latency, throughput, and error rates using Grafana or Prometheus.
 - **PDF Valuation Certificates**: The frontend now features an `fpdf2` integration, allowing users to instantly download an official PDF Certificate containing their car's details and the 80% confidence valuation bounds.
+- **AI Negotiation Intelligence (Groq LLM)**: By providing a `GROQ_API_KEY`, the backend connects to the Llama-3 model to provide dynamic, ultra-fast negotiation tactics customized to the exact vehicle specs and SHAP feature importances.
 - **Premium UI Upgrades**: The Streamlit interface was entirely redesigned using custom CSS (Glassmorphism, Google Fonts, Animated Gradients, and custom pill-shaped tabs).
 
 ---
@@ -84,6 +85,7 @@ Since Render and Railway deploy individual services, you can deploy them separat
 1. **Backend Service**: Set the start command to `uvicorn api.main:app --host 0.0.0.0 --port 8000`
 2. **Frontend Service**: Set the start command to `streamlit run dashboard/app.py`
 *(Be sure to set the `AUTOVAL_API_KEY` environment variable in both services so they match!)*
+*(Optional: Set the `GROQ_API_KEY` in the Backend Service to enable dynamic AI negotiation insights.)*
 
 ---
 
