@@ -114,9 +114,3 @@ uvicorn api.main:app --host 0.0.0.0 --port 8000
 - **Drift Monitoring**: Includes a lightweight Kolmogorov-Smirnov test script (`src/monitor.py`) to detect input distribution shifts over time.
 
 ---
-
-## Resume Bullets
-
-- "Built a used-car pricing engine (XGBoost + LightGBM ensemble, Optuna-tuned) with quantile regression for confidence-bounded predictions and a custom asymmetric business-cost metric; served via FastAPI with sub-[X]ms latency."
-- "Designed SHAP-based explainability pipeline surfacing top price-driving factors per prediction, exposed as a live API endpoint and interactive Streamlit dashboard."
-- "Implemented CI/CD (GitHub Actions), Dockerized deployment, and lightweight data-drift monitoring, achieving 30% RMSE improvement over linear baseline."
