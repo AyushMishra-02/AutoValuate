@@ -13,9 +13,7 @@ import sys
 import json
 from groq import Groq
 
-# Groq Client Initialization
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+# Removed global Groq client for security; now passed via HTTP header
 
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
 
@@ -112,8 +110,8 @@ def model_info(api_key: str = Depends(verify_api_key)):
         "features": all_feat_names
     }
 
-def generate_negotiation_insights(feat_contribs, request):
-    if not groq_client or not request:
+def generate_negotiation_insights(feat_contribs, request, groq_key=None):
+    if not groq_key or not request:
         # Fallback heuristic if Groq API key is missing or request is None
         insights = []
         for feat, contrib in feat_contribs:
@@ -146,7 +144,8 @@ Format exactly as a JSON array of strings, like this:
 ["Buyer Tactic: ...", "Seller Leverage: ..."]
 Do not output any markdown formatting or extra text.
 """
-        response = groq_client.chat.completions.create(
+        client = Groq(api_key=groq_key)
+        response = client.chat.completions.create(
             model="llama3-8b-8192",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
@@ -184,7 +183,7 @@ def log_prediction_to_db(req_dict, price, lower, upper):
 
 # LRU Cache for identical requests (simulates Redis edge cache)
 @functools.lru_cache(maxsize=1000)
-def compute_prediction(req_tuple):
+def compute_prediction(req_tuple, groq_key=None):
     # Convert tuple back to dict and reconstruct PredictionRequest object
     req_dict = dict(req_tuple)
     request_obj = PredictionRequest(**req_dict)
@@ -229,7 +228,7 @@ def compute_prediction(req_tuple):
         explanation = [{'feature': f, 'contribution': round(float(c), 2)} for f, c in top_3]
         
         # Generate insights using LLM
-        insights = generate_negotiation_insights(feat_contribs, request_obj)
+        insights = generate_negotiation_insights(feat_contribs, request_obj, groq_key)
         
     return {
         "predicted_price": round(float(point_pred), 2),
@@ -240,7 +239,7 @@ def compute_prediction(req_tuple):
     }
 
 @app.post("/predict", response_model=PredictionResponse)
-def predict_price(request: PredictionRequest, background_tasks: BackgroundTasks, api_key: str = Depends(verify_api_key)):
+def predict_price(request: PredictionRequest, background_tasks: BackgroundTasks, api_key: str = Depends(verify_api_key), x_groq_key: str = Header(None)):
     if not pipeline_components:
         raise HTTPException(status_code=503, detail="Models not loaded")
         
@@ -249,7 +248,7 @@ def predict_price(request: PredictionRequest, background_tasks: BackgroundTasks,
         # Create a hashable tuple for LRU cache
         req_tuple = tuple(sorted(req_dict.items()))
         
-        result = compute_prediction(req_tuple)
+        result = compute_prediction(req_tuple, groq_key=x_groq_key)
         
         # Background task for asynchronous MLOps logging
         background_tasks.add_task(

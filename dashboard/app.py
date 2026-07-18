@@ -180,6 +180,12 @@ def generate_pdf(req_data, price, lower, upper):
 # Base API URL (can be set in Streamlit Cloud Secrets or env)
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
+# Fetch Groq API Key securely from Streamlit Cloud Secrets (or env)
+try:
+    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+except:
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
 # Sidebar
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3202/3202926.png", width=60)
@@ -255,6 +261,8 @@ with tab1:
                 time.sleep(0.5) # Slight delay for dramatic UX effect
                 try:
                     headers = {"X-API-Key": api_key}
+                    if GROQ_API_KEY:
+                        headers["X-Groq-Key"] = GROQ_API_KEY
                     response = requests.post(f"{API_URL}/predict", json=payload, headers=headers)
                     if response.status_code == 200:
                         data = response.json()
