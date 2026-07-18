@@ -177,6 +177,9 @@ def generate_pdf(req_data, price, lower, upper):
     
     return bytes(pdf.output())
 
+# Base API URL (can be set in Streamlit Cloud Secrets or env)
+API_URL = os.getenv("API_URL", "http://localhost:8000")
+
 # Sidebar
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3202/3202926.png", width=60)
@@ -190,7 +193,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("#### 🟢 System Status")
     try:
-        health_resp = requests.get("http://localhost:8000/health")
+        health_resp = requests.get(f"{API_URL}/health")
         if health_resp.status_code == 200:
             st.success("Core ML API: Online")
         else:
@@ -252,7 +255,7 @@ with tab1:
                 time.sleep(0.5) # Slight delay for dramatic UX effect
                 try:
                     headers = {"X-API-Key": api_key}
-                    response = requests.post("http://localhost:8000/predict", json=payload, headers=headers)
+                    response = requests.post(f"{API_URL}/predict", json=payload, headers=headers)
                     if response.status_code == 200:
                         data = response.json()
                         st.toast("Valuation Generated Successfully!", icon="✅")
