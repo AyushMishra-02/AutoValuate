@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoValuate - Dynamic Price Prediction Engine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --positive: #10b981;
+            --negative: #ef4444;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+        }
+
+        input, select {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+
+        button {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 1rem;
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Results Panel */
+        .results-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .price-display {
+            text-align: center;
+            margin-bottom: 3rem;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .price-display.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .price-label {
+            font-size: 1rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .price-value {
+            font-size: 4rem;
+            font-weight: 700;
+            margin: 0;
+            color: white;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+
+        .shap-container {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s;
+        }
+
+        .shap-container.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .shap-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 0.5rem;
+        }
+
+        .shap-item {
+            margin-bottom: 1.25rem;
+        }
+
+        .shap-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .shap-feature {
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        .shap-value {
+            font-weight: 700;
+        }
+
+        .shap-value.positive { color: var(--positive); }
+        .shap-value.negative { color: var(--negative); }
+
+        .shap-bar-bg {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .shap-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            width: 0%;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .shap-bar-fill.positive { background: var(--positive); }
+        .shap-bar-fill.negative { background: var(--negative); }
+
+        .loader {
+            display: none;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top: 3px solid var(--primary);
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #submitText {
+            display: inline-block;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Input Panel -->
+        <div class="glass-panel">
+            <h1>AutoValuate</h1>
+            <p class="subtitle">Enter the car details below to get an AI-powered price prediction backed by SHAP explainability.</p>
+
+            <form id="predictForm">
+                <div class="form-group">
+                    <label for="name">Car Model (e.g., Maruti 800 AC)</label>
+                    <input type="text" id="name" required placeholder="Hyundai Verna 1.6 SX">
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="year">Manufacture Year</label>
+                        <input type="number" id="year" required min="1990" max="2026" placeholder="2015">
+                    </div>
+                    <div class="form-group">
+                        <label for="km_driven">Kilometers Driven</label>
+                        <input type="number" id="km_driven" required min="1" placeholder="45000">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="fuel">Fuel Type</label>
+                        <select id="fuel" required>
+                            <option value="Petrol">Petrol</option>
+                            <option value="Diesel">Diesel</option>
+                            <option value="CNG">CNG</option>
+                            <option value="LPG">LPG</option>
+                            <option value="Electric">Electric</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="transmission">Transmission</label>
+                        <select id="transmission" required>
+                            <option value="Manual">Manual</option>
+                            <option value="Automatic">Automatic</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="seller_type">Seller Type</label>
+                        <select id="seller_type" required>
+                            <option value="Individual">Individual</option>
+                            <option value="Dealer">Dealer</option>
+                            <option value="Trustmark Dealer">Trustmark Dealer</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="owner">Owner Status</label>
+                        <select id="owner" required>
+                            <option value="First Owner">First Owner</option>
+                            <option value="Second Owner">Second Owner</option>
+                            <option value="Third Owner">Third Owner</option>
+                            <option value="Fourth & Above Owner">Fourth & Above Owner</option>
+                            <option value="Test Drive Car">Test Drive Car</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" id="submitBtn">
+                    <span id="submitText">Predict Price</span>
+                    <div class="loader" id="loader"></div>
+                </button>
+            </form>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="glass-panel results-panel" id="resultsPanel" style="display: none;">
+            <div class="price-display" id="priceDisplay">
+                <div class="price-label">Estimated Value</div>
+                <h2 class="price-value">₹<span id="priceValue">0</span></h2>
+            </div>
+
+            <div class="shap-container" id="shapContainer">
+                <h3 class="shap-title">AI Decision Breakdown (Top Factors)</h3>
+                <div id="shapList">
+                    <!-- SHAP items injected here via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('predictForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // UI States
+            const btn = document.getElementById('submitBtn');
+            const submitText = document.getElementById('submitText');
+            const loader = document.getElementById('loader');
+            const resultsPanel = document.getElementById('resultsPanel');
+            const priceDisplay = document.getElementById('priceDisplay');
+            const shapContainer = document.getElementById('shapContainer');
+            
+            btn.disabled = true;
+            submitText.style.display = 'none';
+            loader.style.display = 'block';
+
+            // Reset animations
+            priceDisplay.classList.remove('visible');
+            shapContainer.classList.remove('visible');
+            resultsPanel.style.display = 'flex';
+
+            // Gather data
+            const data = {
+                name: document.getElementById('name').value,
+                year: parseInt(document.getElementById('year').value),
+                km_driven: parseInt(document.getElementById('km_driven').value),
+                fuel: document.getElementById('fuel').value,
+                seller_type: document.getElementById('seller_type').value,
+                transmission: document.getElementById('transmission').value,
+                owner: document.getElementById('owner').value
+            };
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Animate Price Count up
+                    const targetPrice = result.predicted_price;
+                    animateValue("priceValue", 0, targetPrice, 1500);
+
+                    // Render SHAP
+                    const shapList = document.getElementById('shapList');
+                    shapList.innerHTML = '';
+                    
+                    // Find max absolute contribution for bar scaling
+                    const maxContrib = Math.max(...result.top_3_shap_features.map(f => Math.abs(f.contribution)));
+
+                    result.top_3_shap_features.forEach((feat, index) => {
+                        const isPositive = feat.contribution > 0;
+                        const sign = isPositive ? '+' : '';
+                        const colorClass = isPositive ? 'positive' : 'negative';
+                        const percent = maxContrib === 0 ? 0 : (Math.abs(feat.contribution) / maxContrib) * 100;
+                        
+                        const itemHtml = `
+                            <div class="shap-item">
+                                <div class="shap-header">
+                                    <span class="shap-feature">${feat.feature.replace('_', ' ')}</span>
+                                    <span class="shap-value ${colorClass}">${sign}₹${Math.abs(feat.contribution).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
+                                </div>
+                                <div class="shap-bar-bg">
+                                    <div class="shap-bar-fill ${colorClass}" id="bar-${index}" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        `;
+                        shapList.innerHTML += itemHtml;
+                    });
+
+                    // Trigger enter animations
+                    setTimeout(() => {
+                        priceDisplay.classList.add('visible');
+                        shapContainer.classList.add('visible');
+                        
+                        // Animate bars
+                        setTimeout(() => {
+                            result.top_3_shap_features.forEach((feat, index) => {
+                                const percent = maxContrib === 0 ? 0 : (Math.abs(feat.contribution) / maxContrib) * 100;
+                                document.getElementById(`bar-${index}`).style.width = `${percent}%`;
+                            });
+                        }, 500);
+
+                    }, 100);
+                } else {
+                    alert('Error: ' + result.error);
+                }
+
+            } catch (err) {
+                alert('Failed to connect to the server.');
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                submitText.style.display = 'inline-block';
+                loader.style.display = 'none';
+            }
+        });
+
+        // Easing function for number counter
+        function animateValue(id, start, end, duration) {
+            if (start === end) return;
+            const obj = document.getElementById(id);
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                // easeOutQuart
+                const easeProgress = 1 - Math.pow(1 - progress, 4);
+                const current = Math.floor(easeProgress * (end - start) + start);
+                obj.innerHTML = current.toLocaleString();
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+    </script>
+</body>
+</html>
