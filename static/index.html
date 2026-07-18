@@ -329,17 +329,10 @@
             
             const pointColors = dataPoints.map((_, i) => (i + 1) === age ? '#ff2800' : 'transparent');
             const pointRadii = dataPoints.map((_, i) => (i + 1) === age ? 6 : 0);
-            const pointHoverRadii = dataPoints.map((_, i) => (i + 1) === age ? 8 : 4);
 
             if (chartInstance) chartInstance.destroy();
             
             const ctx = document.getElementById('depreciationChart').getContext('2d');
-            
-            // Create gradient for the area under the line
-            const gradient = ctx.createLinearGradient(0, 0, 0, 150);
-            gradient.addColorStop(0, 'rgba(255, 40, 0, 0.4)');
-            gradient.addColorStop(1, 'rgba(255, 40, 0, 0.0)');
-
             chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -347,54 +340,24 @@
                     datasets: [{
                         label: 'Estimated Value',
                         data: dataPoints,
-                        borderColor: '#ff2800',
-                        backgroundColor: gradient,
+                        borderColor: 'rgba(255,255,255,0.2)',
                         borderWidth: 2,
-                        fill: true,
                         pointBackgroundColor: pointColors,
                         pointBorderColor: pointColors,
                         pointRadius: pointRadii,
-                        pointHoverRadius: pointHoverRadii,
-                        tension: 0.4,
-                        cubicInterpolationMode: 'monotone'
+                        tension: 0.4
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false,
-                    },
-                    plugins: { 
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: 'rgba(10, 10, 10, 0.9)',
-                            titleColor: '#888888',
-                            bodyColor: '#ffffff',
-                            bodyFont: { family: 'Inter', size: 14, weight: 'bold' },
-                            titleFont: { family: 'Inter', size: 12 },
-                            borderColor: 'rgba(255, 40, 0, 0.5)',
-                            borderWidth: 1,
-                            padding: 10,
-                            displayColors: false,
-                            callbacks: {
-                                label: function(context) {
-                                    return formatPrice(context.parsed.y);
-                                }
-                            }
-                        }
-                    },
+                    plugins: { legend: { display: false } },
                     scales: {
-                        x: { 
-                            grid: { display: false }, 
-                            ticks: { color: '#888888', font: { family: 'Inter', size: 10 } } 
-                        },
+                        x: { grid: { display: false }, ticks: { color: '#888888' } },
                         y: { 
-                            grid: { color: 'rgba(255,255,255,0.05)', borderDash: [5, 5] }, 
+                            grid: { color: 'rgba(255,255,255,0.05)' }, 
                             ticks: { 
                                 color: '#888888',
-                                font: { family: 'Inter', size: 10 },
                                 callback: function(value) { return '₹' + (value/100000).toFixed(1) + 'L'; }
                             } 
                         }
